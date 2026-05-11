@@ -26,12 +26,15 @@ jobs:
           push: true
           tags: alkbil/backend-ventas-innovatech:latest
 
-      - name: Desplegar en EC2
+      - name: Desplegar en EC2-Backend vía bastión
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_BACKEND_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
+          proxy_host: ${{ secrets.EC2_FRONTEND_HOST }}
+          proxy_username: ec2-user
+          proxy_key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             docker pull alkbil/backend-ventas-innovatech:latest
             docker stop backend-ventas || true
