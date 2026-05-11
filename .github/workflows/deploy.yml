@@ -22,7 +22,7 @@ jobs:
       - name: Build y Push imagen Docker
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./Springboot-API-REST
           push: true
           tags: alkbil/backend-ventas-innovatech:latest
 
