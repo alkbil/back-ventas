@@ -39,11 +39,4 @@ jobs:
             docker pull alkbil/backend-ventas-innovatech:latest
             docker stop backend-ventas || true
             docker rm backend-ventas || true
-            docker run -d \
-              --name backend-ventas \
-              --restart always \
-              -p 8080:8080 \
-              -e SPRING_DATASOURCE_URL=${{ secrets.DB_URL }} \
-              -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
-              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
-              alkbil/backend-ventas-innovatech:latest
+            docker run -d --name backend-ventas --restart always -p 8080:8080 -e SPRING_DATASOURCE_URL=${{ secrets.DB_URL }} -e DB_USERNAME=${{ secrets.DB_USERNAME }} -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} alkbil/backend-ventas-innovatech:latest
