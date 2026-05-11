@@ -1,4 +1,4 @@
-name: CI/CD Backend Ventas
+﻿name: CI/CD Backend Ventas
 
 on:
   push:
@@ -28,6 +28,10 @@ jobs:
 
       - name: Desplegar en EC2-Backend vía bastión
         uses: appleboy/ssh-action@v1.0.0
+        env:
+          DB_URL: ${{ secrets.DB_URL }}
+          DB_USER: ${{ secrets.DB_USERNAME }}
+          DB_PASS: ${{ secrets.DB_PASSWORD }}
         with:
           host: ${{ secrets.EC2_BACKEND_HOST }}
           username: ec2-user
@@ -35,8 +39,9 @@ jobs:
           proxy_host: ${{ secrets.EC2_FRONTEND_HOST }}
           proxy_username: ec2-user
           proxy_key: ${{ secrets.EC2_SSH_KEY }}
+          envs: DB_URL,DB_USER,DB_PASS
           script: |
             docker pull alkbil/backend-ventas-innovatech:latest
             docker stop backend-ventas || true
             docker rm backend-ventas || true
-            docker run -d --name backend-ventas --restart always -p 8080:8080 -e SPRING_DATASOURCE_URL=${{ secrets.DB_URL }} -e DB_USERNAME=${{ secrets.DB_USERNAME }} -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} alkbil/backend-ventas-innovatech:latest
+            docker run -d --name backend-ventas --restart always -p 8080:8080 -e SPRING_DATASOURCE_URL="$DB_URL" -e DB_USERNAME="$DB_USER" -e DB_PASSWORD="$DB_PASS" alkbil/backend-ventas-innovatech:latest
