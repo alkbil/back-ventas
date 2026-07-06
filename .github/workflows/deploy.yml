@@ -1,51 +1,46 @@
-name: CI/CD Backend Ventas
+﻿name: CI/CD Backend Ventas EKS
 
 on:
   push:
     branches:
+      - main
       - deploy
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout código
         uses: actions/checkout@v3
 
-      - name: Login a Docker Hub
-        uses: docker/login-action@v3
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
 
-      - name: Build y Push imagen Docker
-        uses: docker/build-push-action@v5
-        with:
-          context: ./Springboot-API-REST
-          push: true
-          tags: alkbil/backend-ventas-innovatech:latest
+      - name: Login a Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Desplegar en EC2-Backend vía bastión
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.EC2_BACKEND_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
-          proxy_host: ${{ secrets.EC2_FRONTEND_HOST }}
-          proxy_username: ec2-user
-          proxy_key: ${{ secrets.EC2_SSH_KEY }}
-          envs: DB_URL,DB_USER,DB_PASS
-          script: |
-            docker pull alkbil/backend-ventas-innovatech:latest
-            docker stop backend-ventas || true
-            docker rm backend-ventas || true
-            docker run -d --name backend-ventas --restart always -p 8080:8080 \
-              -e SPRING_DATASOURCE_URL="$DB_URL" \
-              -e DB_USERNAME="$DB_USER" \
-              -e DB_PASSWORD="$DB_PASS" \
-              alkbil/backend-ventas-innovatech:latest
-        env:
-          DB_URL: ${{ secrets.DB_URL }}
-          DB_USER: ${{ secrets.DB_USERNAME }}
-          DB_PASS: ${{ secrets.DB_PASSWORD }}
+      - name: Build y Push imagen a ECR
+        run: |
+          docker build -t backend-ventas-innovatech ./Springboot-API-REST
+          docker tag backend-ventas-innovatech:latest 830985015694.dkr.ecr.us-east-1.amazonaws.com/backend-ventas-innovatech:latest
+          docker push 830985015694.dkr.ecr.us-east-1.amazonaws.com/backend-ventas-innovatech:latest
+
+      - name: Configurar kubectl
+        run: |
+          aws eks update-kubeconfig --region us-east-1 --name innovatech-eks
+
+      - name: Aplicar manifiestos Kubernetes
+        run: |
+          kubectl apply -f k8s/backend-ventas-deployment.yaml
+          kubectl apply -f k8s/backend-ventas-service.yaml
+          kubectl apply -f k8s/backend-ventas-hpa.yaml
+
+      - name: Deploy en EKS
+        run: |
+          kubectl rollout restart deployment/backend-ventas -n innovatech
+          kubectl rollout status deployment/backend-ventas -n innovatech
