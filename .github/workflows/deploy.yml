@@ -1,17 +1,15 @@
-name: CI/CD Backend Ventas EKS
-
+﻿name: CI/CD Backend Ventas EKS
 on:
   push:
     branches:
       - main
-
+      - deploy
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout código
+      - name: Checkout codigo
         uses: actions/checkout@v3
-
       - name: Configurar credenciales AWS
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -19,21 +17,26 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
-
       - name: Login a Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
-
       - name: Build y Push imagen a ECR
+        env:
+          ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+          ECR_REPOSITORY: backend-ventas-innovatech
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t backend-ventas-innovatech ./Springboot-API-REST
-          docker tag backend-ventas-innovatech:latest 830985015694.dkr.ecr.us-east-1.amazonaws.com/backend-ventas-innovatech:latest
-          docker push 830985015694.dkr.ecr.us-east-1.amazonaws.com/backend-ventas-innovatech:latest
-
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./Springboot-API-REST
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
       - name: Configurar kubectl
         run: |
-          aws eks update-kubeconfig --region us-east-1 --name innovatech-eks
-
+          aws eks update-kubeconfig --region us-east-1 --name Innovatech-eks
       - name: Deploy en EKS
+        env:
+          ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+          ECR_REPOSITORY: backend-ventas-innovatech
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          kubectl rollout restart deployment/backend-ventas -n innovatech
+          kubectl set image deployment/backend-ventas backend-ventas=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -n innovatech
           kubectl rollout status deployment/backend-ventas -n innovatech
